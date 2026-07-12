@@ -128,11 +128,15 @@ function initAudio() {
 }
 
 // ユーザーが画面に触れた初回にAudioContextをアンロックしてBGM開始
-document.addEventListener('pointerdown', () => {
+const unlockAudio = () => {
   if (!audioInitialized) {
     initAudio();
   }
-}, { once: true });
+};
+// スマホ（Safari等）ではtouchstartやclickが必須な場合があるため複数登録
+document.addEventListener('pointerdown', unlockAudio, { once: true });
+document.addEventListener('touchstart', unlockAudio, { once: true });
+document.addEventListener('click', unlockAudio, { once: true });
 
 // スライダーで音量調整（+ テスト音再生）
 bgmVol.addEventListener('input', () => { 
