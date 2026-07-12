@@ -152,59 +152,7 @@ class FootstepAudio {
         }
       }
       
-      // 4. メロディアスなシンセリード
-      const leadSequence = [
-        // 1小節目 (Eマイナー)
-        { step: 0, freq: 329.63, dur: beatDuration * 0.75 },  // E4
-        { step: 3, freq: 392.00, dur: beatDuration * 0.25 },  // G4
-        { step: 4, freq: 440.00, dur: beatDuration * 0.75 },  // A4
-        { step: 7, freq: 493.88, dur: beatDuration * 0.25 },  // B4
-        { step: 8, freq: 587.33, dur: beatDuration * 0.75 },  // D5
-        { step: 11, freq: 659.25, dur: beatDuration * 0.25 }, // E5
-        { step: 12, freq: 587.33, dur: beatDuration * 1.0 },  // D5
-        
-        // 2小節目
-        { step: 16, freq: 392.00, dur: beatDuration * 0.5 },  // G4
-        { step: 18, freq: 440.00, dur: beatDuration * 0.5 },  // A4
-        { step: 20, freq: 493.88, dur: beatDuration * 0.5 },  // B4
-        { step: 22, freq: 587.33, dur: beatDuration * 0.5 },  // D5
-        { step: 24, freq: 659.25, dur: beatDuration * 2.0 },  // E5 (ロングトーン)
-      ];
-      
-      leadSequence.forEach(note => {
-        const time = startTime + note.step * stepDuration;
-        const osc = this.audioCtx.createOscillator();
-        osc.type = 'square'; // 8bit風の太いリード
-        
-        // メロディらしいポルタメント（ピッチベンド）を少しつける
-        osc.frequency.setValueAtTime(note.freq * 0.95, time);
-        osc.frequency.exponentialRampToValueAtTime(note.freq, time + 0.05);
-        
-        const filter = this.audioCtx.createBiquadFilter();
-        filter.type = 'lowpass';
-        // メロディがはっきり聞こえるようにフィルターを開く
-        filter.frequency.setValueAtTime(4000, time);
-        filter.frequency.exponentialRampToValueAtTime(1000, time + note.dur);
-        
-        const gain = this.audioCtx.createGain();
-        gain.gain.setValueAtTime(0, time);
-        gain.gain.linearRampToValueAtTime(this.bgmVol * 0.1, time + 0.02); // アタック早くして音量を上げる
-        gain.gain.setValueAtTime(this.bgmVol * 0.1, time + note.dur * 0.8); // サステイン
-        gain.gain.linearRampToValueAtTime(0, time + note.dur); // リリース
-        
-        // メロディは中央に配置（少しだけディレイ/リバーブ感を出すためコーラス）
-        const panner = this.audioCtx.createStereoPanner();
-        panner.pan.value = (Math.random() - 0.5) * 0.3; // わずかに左右へ
-        
-        osc.connect(filter);
-        filter.connect(panner);
-        panner.connect(gain);
-        gain.connect(this.masterGain);
-        
-        osc.start(time);
-        osc.stop(time + note.dur);
-        this.bgmOscillators.push(osc);
-      });
+      // 4. メロディアスなシンセリード（ユーザーの希望により削除）
       
       // クリーンアップ
       setTimeout(() => {
