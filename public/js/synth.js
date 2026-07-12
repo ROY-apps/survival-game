@@ -73,13 +73,12 @@ class FootstepAudio {
     if (this.bgmPlaying) return;
     this.bgmPlaying = true;
 
-    // サイバーパンク風のループシーケンス
-    const bpm = 120;
-    const beatDuration = 60 / bpm; // 0.5s per beat
-    const loopDuration = beatDuration * 8; // 4 seconds loop
+    // ダークで疾走感のあるシンセウェイヴ風 (140 BPM)
+    const bpm = 140;
+    const beatDuration = 60 / bpm; // 約0.428s (4分音符)
+    const stepDuration = beatDuration / 4; // 16分音符 (約0.107s)
+    const loopDuration = beatDuration * 8; // 2小節ループ (約3.42s)
     
-    // サーバーの稼働時間(ms)から、現在ループのどこにいるかを計算
-    // serverUptimeは秒に変換
     const uptimeSec = serverUptime / 1000;
     const currentLoopPos = uptimeSec % loopDuration;
     let nextLoopStart = this.audioCtx.currentTime + (loopDuration - currentLoopPos);
@@ -87,100 +86,117 @@ class FootstepAudio {
     const scheduleLoop = (startTime) => {
       if (!this.bgmPlaying) return;
       
-      const sequence = [
-        { time: 0, freq: 55, dur: 0.2 },       // A1
-        { time: 0.5, freq: 55, dur: 0.2 },
-        { time: 1.0, freq: 65.41, dur: 0.2 },  // C2
-        { time: 1.5, freq: 65.41, dur: 0.2 },
-        { time: 2.0, freq: 73.42, dur: 0.2 },  // D2
-        { time: 2.5, freq: 73.42, dur: 0.2 },
-        { time: 3.0, freq: 49.00, dur: 0.2 },  // G1
-        { time: 3.5, freq: 49.00, dur: 0.2 },
-      ];
-      
-      // ベースライン
-      sequence.forEach(note => {
+      // 1. ドライビング・ベースライン (16分音符の刻み)
+      const baseFreq = 41.20; // E1
+      for (let i = 0; i < 32; i++) {
+        // 時々休符やオクターブ上を入れてグルーヴを出す
+        if (i % 16 === 14 || i % 16 === 15) continue; // フィルイン的な休符
+        
+        let freq = baseFreq;
+        if (i >= 16 && i < 24) freq = 49.00; // 2小節目はG1へ進行
+        if (i >= 24) freq = 55.00; // 最後にA1へ進行
+        
+        const time = startTime + i * stepDuration;
+        const dur = stepDuration * 0.8;
+        
         const osc = this.audioCtx.createOscillator();
         osc.type = 'sawtooth';
-        osc.frequency.value = note.freq;
+        osc.frequency.value = freq;
         
+        // ベースのフィルターエンベロープ (アタックを強く)
         const filter = this.audioCtx.createBiquadFilter();
         filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(200, startTime + note.time);
-        filter.frequency.exponentialRampToValueAtTime(100, startTime + note.time + note.dur);
+        filter.frequency.setValueAtTime(3000, time);
+        filter.frequency.exponentialRampToValueAtTime(200, time + dur);
         
         const gain = this.audioCtx.createGain();
-        // BGMボリュームを反映
-        gain.gain.setValueAtTime(this.bgmVol * 0.15, startTime + note.time);
-        gain.gain.exponentialRampToValueAtTime(0.01, startTime + note.time + note.dur);
+        gain.gain.setValueAtTime(this.bgmVol * 0.2, time);
+        gain.gain.exponentialRampToValueAtTime(0.01, time + dur);
         
         osc.connect(filter);
         filter.connect(gain);
         gain.connect(this.masterGain);
         
-        osc.start(startTime + note.time);
-        osc.stop(startTime + note.time + note.dur);
-        
-        // オシレーターを保存しておく(ストップ用)
+        osc.start(time);
+        osc.stop(time + dur);
         this.bgmOscillators.push(osc);
-      });
-      
-      // ハイハット的なノイズ（チッチッチ） - 音量を0.1から0.02へ大幅ダウン
-      for(let i = 0; i < 8; i++) {
-        const time = startTime + i * beatDuration;
-        this.addNoiseBurst(time, 0.05, this.bgmVol * 0.02, 4000, 10000, this.masterGain);
       }
-
-      // 未来的な電子楽器のメロディー (シンセリード)
-      // Aマイナー・ペンタトニック的なアルペジオ
-      const melodySequence = [
-        { time: 0.0, freq: 440.00, dur: 0.1 },  // A4
-        { time: 0.5, freq: 523.25, dur: 0.1 },  // C5
-        { time: 1.0, freq: 659.25, dur: 0.1 },  // E5
-        { time: 1.5, freq: 880.00, dur: 0.1 },  // A5
-        { time: 2.0, freq: 783.99, dur: 0.1 },  // G5
-        { time: 2.5, freq: 659.25, dur: 0.1 },  // E5
-        { time: 3.0, freq: 523.25, dur: 0.1 },  // C5
-        { time: 3.5, freq: 587.33, dur: 0.1 },  // D5
+      
+      // 2. 重いキックドラム (4つ打ち)
+      for (let i = 0; i < 8; i++) {
+        const time = startTime + i * beatDuration;
+        
+        const osc = this.audioCtx.createOscillator();
+        osc.type = 'sine';
+        // 急激なピッチダウンでキックのアタック感を出す
+        osc.frequency.setValueAtTime(150, time);
+        osc.frequency.exponentialRampToValueAtTime(20, time + 0.1);
+        
+        const gain = this.audioCtx.createGain();
+        gain.gain.setValueAtTime(this.bgmVol * 0.4, time);
+        gain.gain.exponentialRampToValueAtTime(0.01, time + 0.3);
+        
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        osc.start(time);
+        osc.stop(time + 0.3);
+        this.bgmOscillators.push(osc);
+      }
+      
+      // 3. ハイハット (裏打ち)
+      for (let i = 0; i < 16; i++) {
+        // 裏拍(8分音符の裏)にハイハット
+        if (i % 2 === 1) {
+          const time = startTime + i * (beatDuration / 2);
+          this.addNoiseBurst(time, 0.05, this.bgmVol * 0.03, 5000, 10000, this.masterGain);
+        }
+      }
+      
+      // 4. ダークで不穏なシンセリード (時々鳴る)
+      const leadSequence = [
+        { step: 8, freq: 329.63, dur: beatDuration * 1.5 }, // E4
+        { step: 14, freq: 392.00, dur: beatDuration * 0.5 }, // G4
+        { step: 24, freq: 440.00, dur: beatDuration * 1.5 }, // A4
       ];
       
-      melodySequence.forEach(note => {
+      leadSequence.forEach(note => {
+        const time = startTime + note.step * stepDuration;
         const osc = this.audioCtx.createOscillator();
-        osc.type = 'square'; // 8bit/未来的な電子音感
-        osc.frequency.value = note.freq;
+        osc.type = 'square';
+        
+        // わずかなピッチベンド
+        osc.frequency.setValueAtTime(note.freq - 5, time);
+        osc.frequency.linearRampToValueAtTime(note.freq, time + 0.1);
         
         const filter = this.audioCtx.createBiquadFilter();
         filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(2000, startTime + note.time);
-        filter.frequency.exponentialRampToValueAtTime(500, startTime + note.time + note.dur);
+        filter.frequency.setValueAtTime(1500, time);
         
         const gain = this.audioCtx.createGain();
-        // メロディのボリューム
-        gain.gain.setValueAtTime(this.bgmVol * 0.05, startTime + note.time);
-        gain.gain.exponentialRampToValueAtTime(0.001, startTime + note.time + note.dur * 1.5);
+        gain.gain.setValueAtTime(0, time);
+        gain.gain.linearRampToValueAtTime(this.bgmVol * 0.06, time + 0.05); // アタック
+        gain.gain.linearRampToValueAtTime(0, time + note.dur); // リリース
         
-        // ちょっとしたディレイ感を出すためにステレオパンを振る
+        // コーラス/ディレイ風の広がり
         const panner = this.audioCtx.createStereoPanner();
-        panner.pan.value = (Math.random() - 0.5) * 0.8; // 左右に散らす
+        panner.pan.value = (Math.random() - 0.5);
         
         osc.connect(filter);
         filter.connect(panner);
         panner.connect(gain);
         gain.connect(this.masterGain);
         
-        osc.start(startTime + note.time);
-        osc.stop(startTime + note.time + note.dur * 1.5);
-        
+        osc.start(time);
+        osc.stop(time + note.dur);
         this.bgmOscillators.push(osc);
       });
       
-      // 古いオシレーターのクリーンアップ (メロディ分増えたので余裕をもたせる)
+      // クリーンアップ
       setTimeout(() => {
-        this.bgmOscillators = this.bgmOscillators.slice(24);
+        this.bgmOscillators = this.bgmOscillators.slice(64); // 要素数が増えたので保持数を増やす
       }, loopDuration * 1000 + 1000);
     };
 
-    // 最初のループを途中から再生するのは複雑なので、次のループ開始まで待ってからスケジューリング開始
     this.bgmInterval = setInterval(() => {
       if (this.audioCtx.currentTime >= nextLoopStart - 0.1) {
         scheduleLoop(nextLoopStart);
