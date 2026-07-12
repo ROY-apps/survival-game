@@ -1,0 +1,713 @@
+:root {
+  --bg-color: #0f111a;
+  --panel-bg: rgba(22, 28, 45, 0.65);
+  --border-color: rgba(255, 255, 255, 0.08);
+  --accent-color: #ff3e3e;
+  --accent-glow: rgba(255, 62, 62, 0.4);
+  --success-color: #00ff66;
+  --success-glow: rgba(0, 255, 102, 0.3);
+  --text-primary: #f3f4f6;
+  --text-secondary: #9ca3af;
+  --primary-btn-bg: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+  --secondary-btn-bg: linear-gradient(135deg, #2193b0 0%, #6dd5ed 100%);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body, html {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--bg-color);
+  font-family: 'Outfit', 'Noto Sans JP', sans-serif;
+  color: var(--text-primary);
+  position: relative;
+}
+
+/* ゲームキャンバス */
+#gameCanvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  display: block;
+  touch-action: none;
+}
+
+/* 共通オーバーレイ画面スタイル（スタート、ロビー、ゲームオーバー） */
+.overlay-screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: radial-gradient(circle at center, rgba(15, 17, 26, 0.85) 0%, rgba(8, 9, 14, 0.96) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 20px;
+  animation: fadeIn 0.4s ease-out;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* ガラスモルフィズムパネル */
+.glass-panel {
+  background: var(--panel-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 24px;
+  padding: 40px;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  text-align: center;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  position: relative;
+  overflow-y: auto;
+  max-height: 90vh;
+}
+
+.glass-panel.wide-panel {
+  max-width: 800px;
+  width: 90%;
+}
+
+/* タイトル & テキスト */
+h1 {
+  font-size: 2.5rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  line-height: 1.1;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+h2 {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin-bottom: 16px;
+  letter-spacing: -0.5px;
+}
+
+.accent-text {
+  background: linear-gradient(90deg, #ff416c, #ff4b2b);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 0 30px var(--accent-glow);
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  margin-bottom: 32px;
+}
+
+/* カメラ撮影用ガイド */
+.camera-guide {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  border-radius: 50%;
+  border: 4px solid rgba(255, 255, 255, 0.8);
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+/* フォーム入力 */
+.input-group {
+  margin-bottom: 24px;
+  text-align: left;
+}
+
+.input-group label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.input-group input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 14px 18px;
+  font-family: inherit;
+  color: white;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  outline: none;
+}
+
+.input-group input:focus {
+  border-color: #ff4b2b;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 15px rgba(255, 75, 43, 0.2);
+}
+
+/* ボタン */
+.mode-select {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+button {
+  width: 100%;
+  border: none;
+  border-radius: 14px;
+  padding: 16px;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.3s ease;
+  outline: none;
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+.primary-btn {
+  background: var(--primary-btn-bg);
+  color: white;
+  box-shadow: 0 10px 20px rgba(255, 75, 43, 0.3);
+}
+
+.primary-btn:hover {
+  box-shadow: 0 15px 25px rgba(255, 75, 43, 0.45);
+}
+
+.secondary-btn {
+  background: var(--secondary-btn-bg);
+  color: white;
+  box-shadow: 0 10px 20px rgba(33, 147, 176, 0.3);
+}
+
+.secondary-btn:hover {
+  box-shadow: 0 15px 25px rgba(33, 147, 176, 0.45);
+}
+
+.credits {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: 24px;
+}
+
+/* 待機ロビー用レイアウト */
+.status-msg {
+  color: var(--success-color);
+  font-size: 1rem;
+  margin-bottom: 8px;
+  text-shadow: 0 0 10px var(--success-glow);
+}
+
+.countdown-text {
+  font-size: 1.4rem;
+  font-weight: 800;
+  margin-bottom: 24px;
+}
+
+#countdownSec {
+  color: #ff4b2b;
+  font-size: 1.8rem;
+  text-shadow: 0 0 15px var(--accent-glow);
+}
+
+.lobby-columns {
+  display: flex;
+  gap: 24px;
+  margin-top: 16px;
+  text-align: left;
+}
+
+.lobby-col {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 16px;
+  padding: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  display: flex;
+  flex-direction: column;
+}
+
+.lobby-col h3 {
+  font-size: 1.1rem;
+  margin-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 8px;
+}
+
+.user-list {
+  list-style: none;
+  overflow-y: auto;
+  max-height: 250px;
+}
+
+.user-list li {
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  margin-bottom: 6px;
+  font-size: 0.95rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.user-list li .badge {
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+}
+
+.user-list li .player-badge {
+  background: #ff4b2b;
+  color: white;
+}
+
+.user-list li .spectator-badge-small {
+  background: #2193b0;
+  color: white;
+}
+
+.vote-instruction {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.vote-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  overflow-y: auto;
+  max-height: 200px;
+}
+
+.vote-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  padding: 10px;
+  text-align: left;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.vote-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.vote-btn.voted {
+  background: rgba(0, 255, 102, 0.15);
+  border-color: var(--success-color);
+  color: var(--success-color);
+}
+
+.vote-count {
+  font-size: 0.75rem;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.vote-status-msg {
+  margin-top: 12px;
+  font-size: 0.9rem;
+  color: var(--success-color);
+  font-weight: 600;
+}
+
+/* HUD (ゲーム中の情報表示) */
+#hud {
+  position: absolute;
+  top: max(20px, env(safe-area-inset-top));
+  left: max(20px, env(safe-area-inset-left));
+  right: max(20px, env(safe-area-inset-right));
+  z-index: 5;
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none; /* 下のCanvasにタッチを貫通させる */
+}
+
+#playerStats {
+  background: rgba(15, 17, 26, 0.75);
+  border: 1px solid var(--border-color);
+  padding: 12px 18px;
+  border-radius: 16px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stat-bar-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 220px;
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--text-secondary);
+}
+
+.stat-bar-bg {
+  flex: 1;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.stat-bar-fill {
+  height: 100%;
+  border-radius: 6px;
+  width: 100%;
+  transition: width 0.2s ease;
+  min-width: 0 !important; /* オーバーライド防止 */
+}
+
+.hp-fill {
+  background: linear-gradient(90deg, #ff416c, #ff4b2b);
+  box-shadow: 0 0 10px rgba(255, 75, 43, 0.4);
+}
+
+.stat-value {
+  font-size: 0.8rem;
+  font-weight: 700;
+  width: 50px;
+  text-align: right;
+}
+
+.weapon-info {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.weapon-highlight {
+  color: white;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+/* 観戦者用HUD情報 */
+#spectatorHudInfo {
+  background: rgba(15, 17, 26, 0.75);
+  border: 1px solid var(--border-color);
+  padding: 10px 16px;
+  border-radius: 16px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.spectator-badge {
+  background: var(--secondary-btn-bg);
+  font-size: 0.8rem;
+  font-weight: 800;
+  padding: 4px 8px;
+  border-radius: 6px;
+  text-align: center;
+  align-self: flex-start;
+}
+
+.spectator-tip {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+}
+
+.voted-target-box {
+  font-size: 0.8rem;
+}
+
+.voted-target-box span {
+  color: var(--success-color);
+  font-weight: 700;
+}
+
+#gameStats {
+  background: rgba(15, 17, 26, 0.75);
+  border: 1px solid var(--border-color);
+  padding: 12px 18px;
+  border-radius: 16px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 140px; /* ミニマップの下に配置 */
+}
+
+.game-stat-item {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.highlight-num {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #ff4b2b;
+}
+
+.zone-warning {
+  color: #ff3e3e;
+  font-size: 0.75rem;
+  font-weight: 700;
+  animation: flash 1s infinite alternate;
+}
+
+/* スマホ用タッチ操作コントローラー */
+#controlsOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 4;
+  pointer-events: none; /* コンテナ自体はタッチを貫通させ、子要素のみ反応させる */
+  touch-action: none;
+}
+
+#joystickZone {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 50%;
+  height: 60%;
+  pointer-events: auto; /* スティック操作用のアクティブ領域 */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#joystickOuter {
+  width: 120px;
+  height: 120px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+#joystickInner {
+  width: 50px;
+  height: 50px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.15));
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+#actionZone {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 50%;
+  height: 60%;
+  pointer-events: auto; /* 攻撃ボタン領域 */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#shootBtn {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ff416c 0%, #ff4b2b 100%);
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  font-size: 1.2rem;
+  font-weight: 800;
+  box-shadow: 0 10px 25px rgba(255, 75, 43, 0.5);
+  opacity: 0.7;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: opacity 0.2s, transform 0.1s;
+}
+
+#shootBtn:active {
+  transform: scale(0.92);
+  opacity: 0.9;
+}
+
+/* ゲームオーバー画面 */
+.winner-box {
+  background: rgba(255, 215, 0, 0.1);
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  border-radius: 16px;
+  padding: 20px;
+  margin: 20px 0;
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.15);
+}
+
+.crown-icon {
+  font-size: 3rem;
+  margin-bottom: 8px;
+  animation: bounce 1.5s infinite alternate;
+}
+
+.winner-name {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #ffd700;
+  margin-bottom: 8px;
+}
+
+.spectator-result-box {
+  margin: 16px 0;
+  font-weight: 700;
+}
+
+.lobby-return-msg {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+/* アニメーション */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes flash {
+  from { opacity: 0.3; }
+  to { opacity: 1; }
+}
+
+@keyframes bounce {
+  from { transform: translateY(0); }
+  to { transform: translateY(-10px); }
+}
+
+/* モバイル向け横画面および狭い画面の微調整 */
+@media (max-width: 768px) {
+  .lobby-columns {
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .glass-panel {
+    padding: 24px;
+  }
+  
+  h1 {
+    font-size: 2rem;
+  }
+}
+
+/* モバイル横画面（ランドスケープ）への超コンパクト最適化 */
+@media (max-width: 900px) and (orientation: landscape) {
+  .glass-panel {
+    padding: 12px 20px;
+    max-height: 95vh;
+  }
+  
+  h1 {
+    font-size: 1.4rem;
+    margin-bottom: 4px;
+  }
+  
+  h2 {
+    font-size: 1.2rem;
+    margin-bottom: 8px;
+  }
+  
+  .subtitle {
+    font-size: 0.8rem;
+    margin-bottom: 12px;
+  }
+  
+  .input-group {
+    margin-bottom: 12px;
+  }
+  
+  .input-group label {
+    font-size: 0.75rem;
+    margin-bottom: 4px;
+  }
+  
+  .input-group input {
+    padding: 8px 12px;
+    font-size: 0.9rem;
+  }
+  
+  .mode-select {
+    flex-direction: row;
+    gap: 8px;
+  }
+  
+  .mode-select button {
+    padding: 10px;
+    font-size: 0.85rem;
+  }
+  
+  .credits {
+    margin-top: 10px;
+    font-size: 0.65rem;
+  }
+
+  /* ロビー画面の縮小 */
+  .countdown-text {
+    font-size: 1.1rem;
+    margin-bottom: 8px;
+  }
+  
+  #countdownSec {
+    font-size: 1.3rem;
+  }
+  
+  .lobby-columns {
+    flex-direction: row; /* 横並び維持 */
+    margin-top: 8px;
+    gap: 16px;
+  }
+  
+  .user-list, .vote-grid {
+    max-height: 120px;
+  }
+  
+  .lobby-col {
+    padding: 12px;
+  }
+}
+

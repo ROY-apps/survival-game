@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>室内活動</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- ゲームの描画用キャンバス -->
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- スマホタッチ操作用UI overlay (ゲーム中のみ表示) -->
+  <div id="controlsOverlay" class="hidden">
+    <div id="joystickZone">
+      <div id="joystickOuter">
+        <div id="joystickInner"></div>
+      </div>
+    </div>
+    <div id="actionZone">
+      <button id="shootBtn">FIRE</button>
+    </div>
+  </div>
+
+  <!-- スタート・セットアップ画面 -->
+  <div id="startScreen" class="overlay-screen">
+    <div class="glass-panel">
+      <h1>室内活動</h1>
+      <p class="subtitle">リアルタイム・マルチプレイヤー・サバイバル</p>
+      
+      <div class="input-group">
+        <label for="playerName">プレイヤー名</label>
+        <input type="text" id="playerName" placeholder="名前を入力してください" maxlength="12">
+      </div>
+
+      <div class="photo-capture-group" style="margin-bottom: 24px;">
+        <button id="openCameraBtn" class="secondary-btn" style="margin-bottom: 10px;">写真を撮影（カメラ起動）</button>
+        <div id="avatarPreviewContainer" class="hidden">
+          <img id="avatarPreview" src="" alt="Avatar Preview" style="width: 64px; height: 64px; border-radius: 50%; object-fit: cover; border: 2px solid white; display: block; margin: 0 auto;">
+        </div>
+      </div>
+
+      <div class="mode-select">
+        <button id="joinPlayerBtn" class="primary-btn">プレイヤーとして参戦</button>
+        <button id="joinSpectatorBtn" class="secondary-btn">観戦者として参加</button>
+      </div>
+
+      <div class="credits">最大8人プレイ可能 / 9人目以降は自動観戦</div>
+    </div>
+  </div>
+
+  <!-- カメラ撮影モーダル -->
+  <div id="cameraModal" class="overlay-screen hidden">
+    <div class="glass-panel">
+      <h2>写真撮影</h2>
+      <div style="position: relative; display: inline-block; width: 100%; max-width: 240px; aspect-ratio: 1/1; margin-bottom: 12px;">
+        <video id="cameraVideo" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%; transform: scaleX(-1); background: #000;"></video>
+        <div class="camera-guide"></div>
+      </div>
+      <div class="mode-select" style="margin-top: 16px;">
+        <button id="capturePhotoBtn" class="primary-btn">シャッター</button>
+        <button id="switchCameraBtn" class="secondary-btn">カメラ切替</button>
+        <button id="closeCameraBtn" class="secondary-btn" style="background: rgba(255,255,255,0.1); box-shadow: none;">キャンセル</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 待機ロビー画面 -->
+  <div id="lobbyScreen" class="overlay-screen hidden">
+    <div class="glass-panel wide-panel">
+      <h2>待機ロビー</h2>
+      <div id="lobbyStatus" class="status-msg">他のプレイヤーの接続を待っています...</div>
+      <div id="countdownTimer" class="countdown-text hidden">開始まで: <span id="countdownSec">10</span>秒</div>
+
+      <div class="lobby-columns">
+        <div class="lobby-col">
+          <h3>参加プレイヤー (<span id="playerCount">0</span>/8)</h3>
+          <button id="readyToggleBtn" class="primary-btn" style="margin-bottom: 12px; display: none;">準備完了にする</button>
+          <ul id="lobbyPlayerList" class="user-list"></ul>
+        </div>
+        
+        <!-- 観戦者用投票セクション -->
+        <div id="spectatorVoteSection" class="lobby-col hidden">
+          <h3>勝利予想投票 (観戦者限定)</h3>
+          <p class="vote-instruction">誰が最後の1人（ドン勝）になるか予想して投票してください。</p>
+          <div id="votePlayerOptions" class="vote-grid">
+            <!-- 投票ボタンが動的に挿入される -->
+          </div>
+          <div id="myVoteStatus" class="vote-status-msg"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ゲームオーバー / リザルト画面 -->
+  <div id="gameOverScreen" class="overlay-screen hidden">
+    <div class="glass-panel">
+      <h2 id="gameOverTitle">GAME OVER</h2>
+      <div id="winnerDisplay" class="winner-box hidden">
+        <div class="crown-icon">👑</div>
+        <div id="winnerName" class="winner-name">PLAYER</div>
+        <p>ドン勝！おめでとうございます！</p>
+      </div>
+      <div id="spectatorResult" class="spectator-result-box hidden">
+        <p id="spectatorResultMsg">あなたの投票したプレイヤーは敗退しました。</p>
+      </div>
+      <button id="returnToLobbyBtn" class="primary-btn" style="margin-top: 20px;">タイトルに戻る</button>
+    </div>
+  </div>
+
+  <!-- HUD (ゲーム画面上のステータス表示) -->
+  <div id="hud" class="hidden">
+    <!-- プレイヤー用情報 -->
+    <div id="playerStats">
+      <div class="stat-bar-container">
+        <span class="stat-label">HP</span>
+        <div class="stat-bar-bg">
+          <div id="hpBar" class="stat-bar-fill hp-fill"></div>
+        </div>
+        <span id="hpText" class="stat-value">100/100</span>
+      </div>
+      <div class="weapon-info">
+        <span>武器: </span><span id="currentWeaponName" class="weapon-highlight">素手</span>
+      </div>
+    </div>
+
+    <!-- 観戦者用情報 -->
+    <div id="spectatorHudInfo" class="hidden">
+      <div class="spectator-badge">👁️ 観戦モード</div>
+      <div class="spectator-tip">画面をドラッグしてカメラを移動できます</div>
+      <div id="votedTargetDisplay" class="voted-target-box">投票先: <span id="votedTargetName">未投票</span></div>
+    </div>
+
+    <!-- 共通情報 -->
+    <div id="gameStats">
+      <div class="game-stat-item">生存数: <span id="aliveCount" class="highlight-num">0</span></div>
+      <div id="zoneWarning" class="zone-warning hidden">⚠️ エリア縮小中！安全地帯へ移動！</div>
+    </div>
+  </div>
+
+  <!-- 接続遮断などのエラー画面 -->
+  <div id="errorScreen" class="overlay-screen hidden">
+    <div class="glass-panel">
+      <h2>接続エラー</h2>
+      <p id="errorMsg">サーバーとの接続が切れました。再接続を試みています...</p>
+      <button onclick="location.reload()" class="primary-btn">再読み込み</button>
+    </div>
+  </div>
+
+  <!-- Socket.IO とクライアントコードの読み込み -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/raycast.js"></script>
+  <script src="js/joystick.js"></script>
+  <script src="js/synth.js"></script>
+  <script src="js/client.js"></script>
+</body>
+</html>
