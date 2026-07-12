@@ -70,7 +70,7 @@ const ITEM_SPAWN_COUNTS = {
 // 武器設定
 const WEAPONS = {
   fist: { damage: 20, cooldown: 500, range: 60, speed: 0, spread: 0 },
-  machinegun: { damage: 34, cooldown: 150, range: 350, speed: 18, spread: 0.2 },
+  machinegun: { damage: 34, cooldown: 150, range: 260, speed: 18, spread: 0.5 },
   shotgun: { damage: 100, cooldown: 1000, range: 160, speed: 22, spread: 0 },
   knife: { damage: 100, cooldown: 1000, range: 35, speed: 0, spread: 0 } // 接触自動発動
 };
@@ -90,7 +90,7 @@ function getRandomPosition() {
     for (let wall of walls) {
       let margin = 40;
       if (x > wall.x - margin && x < wall.x + wall.w + margin &&
-          y > wall.y - margin && y < wall.y + wall.h + margin) {
+        y > wall.y - margin && y < wall.y + wall.h + margin) {
         ok = false;
         break;
       }
@@ -196,7 +196,7 @@ function checkGameOver() {
   if (gameState.status !== 'INGAME') return;
 
   let alivePlayers = Object.values(gameState.players).filter(p => !p.isSpectator && !p.dead);
-  
+
   // 生存者が1人以下なら終了
   if (alivePlayers.length <= 1) {
     gameState.status = 'GAMEOVER';
@@ -285,7 +285,7 @@ function startLobbyCountdown() {
 function startSpawnSelection() {
   gameState.status = 'SPAWN_SELECTION';
   gameState.spawnCountdown = 15;
-  
+
   // プレイヤーのスポーン選択初期化
   Object.values(gameState.players).forEach(p => {
     p.spawnTarget = null;
@@ -373,7 +373,7 @@ function updateGame() {
       p.y += dy;
 
       // 壁抜け防止のための反復解決 (3回)
-      for(let iter=0; iter<3; iter++) {
+      for (let iter = 0; iter < 3; iter++) {
         for (let wall of walls) {
           let collision = checkCircleRectCollision({ x: p.x, y: p.y, r: 25 }, wall);
           if (collision) {
@@ -397,7 +397,7 @@ function updateGame() {
         if (p.hp <= 0) {
           p.hp = 0;
           p.dead = true;
-          
+
           if (p.hasGhillie) {
             gameState.items.push({ id: Math.random().toString(36).substr(2, 9), x: p.x, y: p.y, type: 'ghillie' });
           }
@@ -424,10 +424,10 @@ function updateGame() {
             other.hp = 0;
             other.dead = true;
             p.lastShotTime = now;
-            
+
             // ナイフは1回使い切りにする（ゲームバランスの調整のため）
-            p.weapon = 'fist'; 
-            
+            p.weapon = 'fist';
+
             if (other.hasGhillie) {
               gameState.items.push({ id: Math.random().toString(36).substr(2, 9), x: other.x, y: other.y, type: 'ghillie' });
             }
@@ -501,7 +501,7 @@ function updateGame() {
                 if (other.hp <= 0) {
                   other.hp = 0;
                   other.dead = true;
-                  
+
                   if (other.hasGhillie) {
                     gameState.items.push({ id: Math.random().toString(36).substr(2, 9), x: other.x, y: other.y, type: 'ghillie' });
                   }
@@ -596,17 +596,17 @@ function updateGame() {
       if (distToPlayer < 25) {
         p.hp -= b.damage;
         hitPlayer = true;
-        
+
         io.emit('playerHit', { id: p.id, hp: p.hp, attackerId: b.playerId });
 
         if (p.hp <= 0) {
           p.hp = 0;
           p.dead = true;
-          
+
           if (p.hasGhillie) {
             gameState.items.push({ id: Math.random().toString(36).substr(2, 9), x: p.x, y: p.y, type: 'ghillie' });
           }
-          
+
           let attacker = gameState.players[b.playerId];
           io.emit('playerDeath', {
             victim: { id: p.id, name: p.name },
@@ -675,7 +675,7 @@ io.on('connection', (socket) => {
     if (data.avatar) {
       p.avatar = data.avatar;
     }
-    
+
     if (data.role === 'spectator') {
       p.isSpectator = true;
       p.wasSpectator = true;
