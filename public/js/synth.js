@@ -125,15 +125,58 @@ class FootstepAudio {
         this.bgmOscillators.push(osc);
       });
       
-      // ハイハット的なノイズ
+      // ハイハット的なノイズ（チッチッチ） - 音量を0.1から0.02へ大幅ダウン
       for(let i = 0; i < 8; i++) {
         const time = startTime + i * beatDuration;
-        this.addNoiseBurst(time, 0.05, this.bgmVol * 0.1, 4000, 10000, this.masterGain);
+        this.addNoiseBurst(time, 0.05, this.bgmVol * 0.02, 4000, 10000, this.masterGain);
       }
+
+      // 未来的な電子楽器のメロディー (シンセリード)
+      // Aマイナー・ペンタトニック的なアルペジオ
+      const melodySequence = [
+        { time: 0.0, freq: 440.00, dur: 0.1 },  // A4
+        { time: 0.5, freq: 523.25, dur: 0.1 },  // C5
+        { time: 1.0, freq: 659.25, dur: 0.1 },  // E5
+        { time: 1.5, freq: 880.00, dur: 0.1 },  // A5
+        { time: 2.0, freq: 783.99, dur: 0.1 },  // G5
+        { time: 2.5, freq: 659.25, dur: 0.1 },  // E5
+        { time: 3.0, freq: 523.25, dur: 0.1 },  // C5
+        { time: 3.5, freq: 587.33, dur: 0.1 },  // D5
+      ];
       
-      // 古いオシレーターのクリーンアップ
+      melodySequence.forEach(note => {
+        const osc = this.audioCtx.createOscillator();
+        osc.type = 'square'; // 8bit/未来的な電子音感
+        osc.frequency.value = note.freq;
+        
+        const filter = this.audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(2000, startTime + note.time);
+        filter.frequency.exponentialRampToValueAtTime(500, startTime + note.time + note.dur);
+        
+        const gain = this.audioCtx.createGain();
+        // メロディのボリューム
+        gain.gain.setValueAtTime(this.bgmVol * 0.05, startTime + note.time);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + note.time + note.dur * 1.5);
+        
+        // ちょっとしたディレイ感を出すためにステレオパンを振る
+        const panner = this.audioCtx.createStereoPanner();
+        panner.pan.value = (Math.random() - 0.5) * 0.8; // 左右に散らす
+        
+        osc.connect(filter);
+        filter.connect(panner);
+        panner.connect(gain);
+        gain.connect(this.masterGain);
+        
+        osc.start(startTime + note.time);
+        osc.stop(startTime + note.time + note.dur * 1.5);
+        
+        this.bgmOscillators.push(osc);
+      });
+      
+      // 古いオシレーターのクリーンアップ (メロディ分増えたので余裕をもたせる)
       setTimeout(() => {
-        this.bgmOscillators = this.bgmOscillators.slice(16);
+        this.bgmOscillators = this.bgmOscillators.slice(24);
       }, loopDuration * 1000 + 1000);
     };
 
