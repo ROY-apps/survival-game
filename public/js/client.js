@@ -109,19 +109,53 @@ const WEAPON_LABELS = {
 // 芝生の床の色（ギリースーツの同化色）
 const GRASS_COLOR = '#1e331e';
 
+let audioInitialized = false;
+
 // サウンド初期化と設定
 function initAudio() {
-  if (window.footstepSystem) {
+  if (window.footstepSystem && !audioInitialized) {
     window.footstepSystem.start();
     window.footstepSystem.setVolume('bgm', parseFloat(bgmVol.value));
     window.footstepSystem.setVolume('sfx', parseFloat(sfxVol.value));
     window.footstepSystem.setVolume('sys', parseFloat(sysVol.value));
+    
+    // ホーム画面（未接続時など）でBGMを流す
+    if (!window.footstepSystem.bgmPlaying) {
+      window.footstepSystem.playBGM(Date.now() / 1000);
+    }
+    audioInitialized = true;
   }
 }
 
-bgmVol.addEventListener('input', () => { if(window.footstepSystem) window.footstepSystem.setVolume('bgm', parseFloat(bgmVol.value)); });
-sfxVol.addEventListener('input', () => { if(window.footstepSystem) window.footstepSystem.setVolume('sfx', parseFloat(sfxVol.value)); });
-sysVol.addEventListener('input', () => { if(window.footstepSystem) window.footstepSystem.setVolume('sys', parseFloat(sysVol.value)); });
+// ユーザーが画面に触れた初回にAudioContextをアンロックしてBGM開始
+document.addEventListener('pointerdown', () => {
+  if (!audioInitialized) {
+    initAudio();
+  }
+}, { once: true });
+
+// スライダーで音量調整（+ テスト音再生）
+bgmVol.addEventListener('input', () => { 
+  if(window.footstepSystem) {
+    initAudio();
+    window.footstepSystem.setVolume('bgm', parseFloat(bgmVol.value));
+  }
+});
+sfxVol.addEventListener('change', () => { 
+  if(window.footstepSystem) {
+    initAudio();
+    window.footstepSystem.setVolume('sfx', parseFloat(sfxVol.value)); 
+    // 効果音のテストとして足音（少し大きめ）を鳴らす
+    window.footstepSystem.playFootstep(0, 1.0);
+  }
+});
+sysVol.addEventListener('change', () => { 
+  if(window.footstepSystem) {
+    initAudio();
+    window.footstepSystem.setVolume('sys', parseFloat(sysVol.value)); 
+    window.footstepSystem.playButtonSound();
+  }
+});
 
 // すべてのボタンクリック時にシステム音を鳴らす
 document.addEventListener('click', (e) => {
@@ -601,6 +635,15 @@ returnToLobbyBtn.onclick = () => {
   // タイトル画面に戻るためページをリロードする（通信のためのわずかな猶予を設ける）
   setTimeout(() => location.reload(), 50);
 };
+
+const leaveLobbyBtn = document.getElementById('leaveLobbyBtn');
+if (leaveLobbyBtn) {
+  leaveLobbyBtn.onclick = () => {
+    // サーバーから切断してタイトル画面へ戻す
+    socket.disconnect();
+    setTimeout(() => location.reload(), 50);
+  };
+}
 
 // --- バーチャルジョイスティック初期化 ---
 const joystick = new VirtualJoystick(

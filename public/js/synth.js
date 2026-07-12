@@ -201,9 +201,9 @@ class FootstepAudio {
     const panner = this.audioCtx.createStereoPanner();
     panner.pan.value = Math.max(-1, Math.min(1, pan));
 
-    // 音量
+    // 音量（足音は大きめに調整）
     const gainNode = this.audioCtx.createGain();
-    gainNode.gain.setValueAtTime(volume * this.sfxVol, now);
+    gainNode.gain.setValueAtTime(volume * this.sfxVol * 1.5, now);
     gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
 
     // 低い「ドスッ」という足音（2つの周波数を重ねる）
@@ -230,7 +230,7 @@ class FootstepAudio {
     filter.Q.value = 1.5;
 
     const noiseGain = this.audioCtx.createGain();
-    noiseGain.gain.setValueAtTime(volume * 0.6, now);
+    noiseGain.gain.setValueAtTime(volume * 1.0, now); // ノイズも大きく
     noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
 
     // 接続: osc1 -> gainNode -> panner -> master
@@ -375,13 +375,13 @@ class FootstepAudio {
     osc.frequency.setValueAtTime(800, now);
     osc.frequency.exponentialRampToValueAtTime(200, now + 0.05);
     const g = this.audioCtx.createGain();
-    g.gain.setValueAtTime(vol * 0.4, now);
+    g.gain.setValueAtTime(vol * 0.15, now); // 音量を下げる
     g.gain.exponentialRampToValueAtTime(0.01, now + 0.06);
     osc.connect(g); g.connect(panner);
     osc.start(now); osc.stop(now + 0.06);
 
     // 短いノイズバースト
-    this.addNoiseBurst(now, 0.04, vol * 0.35, 1000, 8000, panner);
+    this.addNoiseBurst(now, 0.04, vol * 0.15, 1000, 8000, panner);
   }
 
   // ショットガン：重い大きな銃声（「ドカン」）
@@ -397,13 +397,13 @@ class FootstepAudio {
     osc.frequency.setValueAtTime(200, now);
     osc.frequency.exponentialRampToValueAtTime(40, now + 0.3);
     const g = this.audioCtx.createGain();
-    g.gain.setValueAtTime(vol * 1.0, now);
+    g.gain.setValueAtTime(vol * 0.5, now); // 音量を下げる
     g.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
     osc.connect(g); g.connect(panner);
     osc.start(now); osc.stop(now + 0.35);
 
     // 大きなノイズ（爆発的）
-    this.addNoiseBurst(now, 0.15, vol * 0.7, 300, 4000, panner);
+    this.addNoiseBurst(now, 0.15, vol * 0.3, 300, 4000, panner); // 音量を下げる
 
     // 高い余韻
     const osc2 = this.audioCtx.createOscillator();
@@ -411,7 +411,7 @@ class FootstepAudio {
     osc2.frequency.setValueAtTime(500, now);
     osc2.frequency.exponentialRampToValueAtTime(100, now + 0.2);
     const g2 = this.audioCtx.createGain();
-    g2.gain.setValueAtTime(vol * 0.3, now);
+    g2.gain.setValueAtTime(vol * 0.15, now); // 音量を下げる
     g2.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
     osc2.connect(g2); g2.connect(panner);
     osc2.start(now); osc2.stop(now + 0.25);

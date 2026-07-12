@@ -43,7 +43,7 @@ const serverStartTime = Date.now();
 // ゲーム状態
 let gameState = {
   status: 'LOBBY', // LOBBY, SPAWN_SELECTION, START_COUNTDOWN, INGAME, GAMEOVER
-  countdown: 10,
+  countdown: 5,
   spawnCountdown: 15,
   players: {}, // id: playerInfo
   bullets: [],
@@ -70,7 +70,7 @@ const ITEM_SPAWN_COUNTS = {
 // 武器設定
 const WEAPONS = {
   fist: { damage: 20, cooldown: 500, range: 60, speed: 0, spread: 0 },
-  machinegun: { damage: 34, cooldown: 150, range: 800, speed: 18, spread: 0.2 },
+  machinegun: { damage: 34, cooldown: 150, range: 350, speed: 18, spread: 0.2 },
   shotgun: { damage: 100, cooldown: 1000, range: 160, speed: 22, spread: 0 },
   knife: { damage: 100, cooldown: 1000, range: 35, speed: 0, spread: 0 } // 接触自動発動
 };
@@ -227,7 +227,7 @@ function checkGameOver() {
 // ロビーへリセット
 function resetToLobby() {
   gameState.status = 'LOBBY';
-  gameState.countdown = 10;
+  gameState.countdown = 5;
   gameState.winner = null;
   gameState.bullets = [];
   gameState.items = [];
@@ -275,7 +275,7 @@ function startLobbyCountdown() {
         startSpawnSelection();
       }
     } else {
-      gameState.countdown = 10;
+      gameState.countdown = 5;
       io.emit('countdown', -1); // 人数不足または準備未完了で待機中
     }
   }, 1000);
@@ -301,7 +301,11 @@ function startSpawnSelection() {
     let activePlayers = Object.values(gameState.players).filter(p => !p.isSpectator);
     let allSelected = activePlayers.length > 0 && activePlayers.every(p => p.spawnTarget !== null);
 
-    if (gameState.spawnCountdown <= 0 || allSelected) {
+    if (allSelected && gameState.spawnCountdown > 5) {
+      gameState.spawnCountdown = 5;
+    }
+
+    if (gameState.spawnCountdown <= 0) {
       clearInterval(spawnInterval);
       startFinalCountdown();
     }
