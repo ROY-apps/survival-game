@@ -38,10 +38,13 @@ const walls = [
   { x: 950, y: 1500, w: 100, h: 300 }
 ];
 
+const serverStartTime = Date.now();
+
 // ゲーム状態
 let gameState = {
-  status: 'LOBBY', // LOBBY, INGAME, GAMEOVER
+  status: 'LOBBY', // LOBBY, SPAWN_SELECTION, START_COUNTDOWN, INGAME, GAMEOVER
   countdown: 10,
+  spawnCountdown: 15,
   players: {}, // id: playerInfo
   bullets: [],
   items: [],
@@ -152,9 +155,14 @@ function startGame() {
   for (let id in gameState.players) {
     let p = gameState.players[id];
     if (!p.isSpectator) {
-      let pos = getRandomPosition();
-      p.x = pos.x;
-      p.y = pos.y;
+      if (p.spawnTarget) {
+        p.x = p.spawnTarget.x;
+        p.y = p.spawnTarget.y;
+      } else {
+        let pos = getRandomPosition();
+        p.x = pos.x;
+        p.y = pos.y;
+      }
       p.hp = 100;
       p.weapon = 'fist';
       p.hasGhillie = false;
@@ -243,7 +251,8 @@ function resetToLobby() {
   io.emit('lobbyUpdate', {
     status: gameState.status,
     players: gameState.players,
-    countdown: gameState.countdown
+    countdown: gameState.countdown,
+    serverStartTime
   });
 
   startLobbyCountdown();
@@ -263,11 +272,54 @@ function startLobbyCountdown() {
 
       if (gameState.countdown <= 0) {
         clearInterval(countdownInterval);
-        startGame();
+        startSpawnSelection();
       }
     } else {
       gameState.countdown = 10;
       io.emit('countdown', -1); // 人数不足または準備未完了で待機中
+    }
+  }, 1000);
+}
+
+// スポーン選択開始
+function startSpawnSelection() {
+  gameState.status = 'SPAWN_SELECTION';
+  gameState.spawnCountdown = 15;
+  
+  // プレイヤーのスポーン選択初期化
+  Object.values(gameState.players).forEach(p => {
+    p.spawnTarget = null;
+  });
+
+  io.emit('spawnSelectionStart', { duration: gameState.spawnCountdown });
+
+  let spawnInterval = setInterval(() => {
+    gameState.spawnCountdown--;
+    io.emit('spawnCountdown', gameState.spawnCountdown);
+
+    // 全員が選択済みかチェック
+    let activePlayers = Object.values(gameState.players).filter(p => !p.isSpectator);
+    let allSelected = activePlayers.length > 0 && activePlayers.every(p => p.spawnTarget !== null);
+
+    if (gameState.spawnCountdown <= 0 || allSelected) {
+      clearInterval(spawnInterval);
+      startFinalCountdown();
+    }
+  }, 1000);
+}
+
+// ゲーム開始前3秒カウントダウン
+function startFinalCountdown() {
+  gameState.status = 'START_COUNTDOWN';
+  let finalCount = 3;
+  io.emit('finalCountdownStart', finalCount);
+
+  let finalInterval = setInterval(() => {
+    finalCount--;
+    io.emit('finalCountdownUpdate', finalCount);
+    if (finalCount <= 0) {
+      clearInterval(finalInterval);
+      startGame();
     }
   }, 1000);
 }
@@ -565,14 +617,12 @@ function updateGame() {
   }
 
   // 3. 同期
-  io.emit('gameState', {
-    status: gameState.status,
-    countdown: gameState.countdown,
+  io.emit('sync', {
     players: gameState.players,
     bullets: gameState.bullets,
     items: gameState.items,
     safeZone: gameState.safeZone,
-    winner: gameState.winner
+    serverStartTime
   });
 }
 
@@ -603,7 +653,8 @@ io.on('connection', (socket) => {
   io.emit('lobbyUpdate', {
     status: gameState.status,
     players: gameState.players,
-    countdown: gameState.countdown
+    countdown: gameState.countdown,
+    serverStartTime
   });
 
   if (gameState.status === 'LOBBY') {
@@ -644,7 +695,8 @@ io.on('connection', (socket) => {
     io.emit('lobbyUpdate', {
       status: gameState.status,
       players: gameState.players,
-      countdown: gameState.countdown
+      countdown: gameState.countdown,
+      serverStartTime
     });
   });
 
@@ -655,7 +707,8 @@ io.on('connection', (socket) => {
       io.emit('lobbyUpdate', {
         status: gameState.status,
         players: gameState.players,
-        countdown: gameState.countdown
+        countdown: gameState.countdown,
+        serverStartTime
       });
     }
   });
@@ -664,6 +717,13 @@ io.on('connection', (socket) => {
     let p = gameState.players[socket.id];
     if (p && !p.isSpectator && !p.dead) {
       p.input = data;
+    }
+  });
+
+  socket.on('selectSpawn', (pos) => {
+    let p = gameState.players[socket.id];
+    if (p && !p.isSpectator && gameState.status === 'SPAWN_SELECTION') {
+      p.spawnTarget = pos;
     }
   });
 
@@ -684,7 +744,8 @@ io.on('connection', (socket) => {
     io.emit('lobbyUpdate', {
       status: gameState.status,
       players: gameState.players,
-      countdown: gameState.countdown
+      countdown: gameState.countdown,
+      serverStartTime
     });
   });
 
@@ -695,7 +756,8 @@ io.on('connection', (socket) => {
       io.emit('lobbyUpdate', {
         status: gameState.status,
         players: gameState.players,
-        countdown: gameState.countdown
+        countdown: gameState.countdown,
+        serverStartTime
       });
     }
   });

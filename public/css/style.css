@@ -124,8 +124,24 @@ h2 {
   border-radius: 50%;
   border: 4px solid rgba(255, 255, 255, 0.8);
   box-sizing: border-box;
-  pointer-events: none;
 }
+
+/* Volume Sliders */
+.slider-group {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.slider-group label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+.slider-group input[type="range"] {
+  width: 60%;
+  accent-color: var(--success-color);
+}
+
 
 /* フォーム入力 */
 .input-group {

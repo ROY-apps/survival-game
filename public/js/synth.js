@@ -10,6 +10,16 @@ class FootstepAudio {
     this.lastStepTime = {};  // 各敵の最後の足音再生時刻
     this.HEARING_RANGE = 350; // 足音が聞こえる最大距離(px)
     this.STEP_INTERVAL = 320; // 足音の間隔(ms)
+    
+    // 音量設定
+    this.bgmVol = 0.5;
+    this.sfxVol = 0.8;
+    this.sysVol = 0.6;
+    
+    // BGM状態
+    this.bgmPlaying = false;
+    this.bgmOscillators = [];
+    this.bgmInterval = null;
   }
 
   init() {
@@ -30,6 +40,125 @@ class FootstepAudio {
     }
   }
 
+  setVolume(type, val) {
+    if (type === 'bgm') this.bgmVol = val;
+    if (type === 'sfx') this.sfxVol = val;
+    if (type === 'sys') this.sysVol = val;
+  }
+
+  playButtonSound() {
+    if (!this.audioCtx || this.audioCtx.state !== 'running') return;
+    const now = this.audioCtx.currentTime;
+    
+    // ピピっというシステム音
+    const osc = this.audioCtx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(1200, now);
+    osc.frequency.exponentialRampToValueAtTime(800, now + 0.1);
+    
+    const gainNode = this.audioCtx.createGain();
+    gainNode.gain.setValueAtTime(this.sysVol * 0.3, now);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+    
+    osc.connect(gainNode);
+    gainNode.connect(this.masterGain);
+    
+    osc.start(now);
+    osc.stop(now + 0.1);
+  }
+
+  // サーバー時間と同期したBGM
+  playBGM(serverUptime) {
+    if (!this.audioCtx || this.audioCtx.state !== 'running') return;
+    if (this.bgmPlaying) return;
+    this.bgmPlaying = true;
+
+    // サイバーパンク風のループシーケンス
+    const bpm = 120;
+    const beatDuration = 60 / bpm; // 0.5s per beat
+    const loopDuration = beatDuration * 8; // 4 seconds loop
+    
+    // サーバーの稼働時間(ms)から、現在ループのどこにいるかを計算
+    // serverUptimeは秒に変換
+    const uptimeSec = serverUptime / 1000;
+    const currentLoopPos = uptimeSec % loopDuration;
+    let nextLoopStart = this.audioCtx.currentTime + (loopDuration - currentLoopPos);
+    
+    const scheduleLoop = (startTime) => {
+      if (!this.bgmPlaying) return;
+      
+      const sequence = [
+        { time: 0, freq: 55, dur: 0.2 },       // A1
+        { time: 0.5, freq: 55, dur: 0.2 },
+        { time: 1.0, freq: 65.41, dur: 0.2 },  // C2
+        { time: 1.5, freq: 65.41, dur: 0.2 },
+        { time: 2.0, freq: 73.42, dur: 0.2 },  // D2
+        { time: 2.5, freq: 73.42, dur: 0.2 },
+        { time: 3.0, freq: 49.00, dur: 0.2 },  // G1
+        { time: 3.5, freq: 49.00, dur: 0.2 },
+      ];
+      
+      // ベースライン
+      sequence.forEach(note => {
+        const osc = this.audioCtx.createOscillator();
+        osc.type = 'sawtooth';
+        osc.frequency.value = note.freq;
+        
+        const filter = this.audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(200, startTime + note.time);
+        filter.frequency.exponentialRampToValueAtTime(100, startTime + note.time + note.dur);
+        
+        const gain = this.audioCtx.createGain();
+        // BGMボリュームを反映
+        gain.gain.setValueAtTime(this.bgmVol * 0.15, startTime + note.time);
+        gain.gain.exponentialRampToValueAtTime(0.01, startTime + note.time + note.dur);
+        
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.masterGain);
+        
+        osc.start(startTime + note.time);
+        osc.stop(startTime + note.time + note.dur);
+        
+        // オシレーターを保存しておく(ストップ用)
+        this.bgmOscillators.push(osc);
+      });
+      
+      // ハイハット的なノイズ
+      for(let i = 0; i < 8; i++) {
+        const time = startTime + i * beatDuration;
+        this.addNoiseBurst(time, 0.05, this.bgmVol * 0.1, 4000, 10000, this.masterGain);
+      }
+      
+      // 古いオシレーターのクリーンアップ
+      setTimeout(() => {
+        this.bgmOscillators = this.bgmOscillators.slice(16);
+      }, loopDuration * 1000 + 1000);
+    };
+
+    // 最初のループを途中から再生するのは複雑なので、次のループ開始まで待ってからスケジューリング開始
+    this.bgmInterval = setInterval(() => {
+      if (this.audioCtx.currentTime >= nextLoopStart - 0.1) {
+        scheduleLoop(nextLoopStart);
+        nextLoopStart += loopDuration;
+      }
+    }, 100);
+  }
+  
+  stopBGM() {
+    this.bgmPlaying = false;
+    if (this.bgmInterval) {
+      clearInterval(this.bgmInterval);
+      this.bgmInterval = null;
+    }
+    const now = this.audioCtx ? this.audioCtx.currentTime : 0;
+    this.bgmOscillators.forEach(osc => {
+      try { osc.stop(now); } catch(e) {}
+    });
+    this.bgmOscillators = [];
+  }
+
   // 足音を1回鳴らす（低い「ドスッ」という音）
   playFootstep(pan, volume) {
     if (!this.audioCtx || this.audioCtx.state !== 'running') return;
@@ -42,7 +171,7 @@ class FootstepAudio {
 
     // 音量
     const gainNode = this.audioCtx.createGain();
-    gainNode.gain.setValueAtTime(volume, now);
+    gainNode.gain.setValueAtTime(volume * this.sfxVol, now);
     gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
 
     // 低い「ドスッ」という足音（2つの周波数を重ねる）
@@ -161,7 +290,7 @@ class FootstepAudio {
     const dist = Math.sqrt(dx * dx + dy * dy);
     if (dist > this.HEARING_RANGE * 1.5) return null; // 遠すぎる
     const pan = Math.max(-1, Math.min(1, dx / dist));
-    const volume = Math.max(0.05, 1.0 * (1 - dist / (this.HEARING_RANGE * 1.5)));
+    const volume = Math.max(0.05, 1.0 * (1 - dist / (this.HEARING_RANGE * 1.5))) * this.sfxVol;
     return { pan, volume };
   }
 

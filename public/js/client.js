@@ -8,6 +8,18 @@ const hud = document.getElementById('hud');
 const errorScreen = document.getElementById('errorScreen');
 const controlsOverlay = document.getElementById('controlsOverlay');
 
+const spawnSelectionScreen = document.getElementById('spawnSelectionScreen');
+const spawnTimerText = document.getElementById('spawnSec');
+const spawnMapCanvas = document.getElementById('spawnMapCanvas');
+const spawnStatusMsg = document.getElementById('spawnStatusMsg');
+
+const bigCountdownScreen = document.getElementById('bigCountdownScreen');
+const bigCountdownText = document.getElementById('bigCountdownText');
+
+const bgmVol = document.getElementById('bgmVol');
+const sfxVol = document.getElementById('sfxVol');
+const sysVol = document.getElementById('sysVol');
+
 const playerNameInput = document.getElementById('playerName');
 const joinPlayerBtn = document.getElementById('joinPlayerBtn');
 const joinSpectatorBtn = document.getElementById('joinSpectatorBtn');
@@ -97,6 +109,28 @@ const WEAPON_LABELS = {
 // 芝生の床の色（ギリースーツの同化色）
 const GRASS_COLOR = '#1e331e';
 
+// サウンド初期化と設定
+function initAudio() {
+  if (window.footstepSystem) {
+    window.footstepSystem.start();
+    window.footstepSystem.setVolume('bgm', parseFloat(bgmVol.value));
+    window.footstepSystem.setVolume('sfx', parseFloat(sfxVol.value));
+    window.footstepSystem.setVolume('sys', parseFloat(sysVol.value));
+  }
+}
+
+bgmVol.addEventListener('input', () => { if(window.footstepSystem) window.footstepSystem.setVolume('bgm', parseFloat(bgmVol.value)); });
+sfxVol.addEventListener('input', () => { if(window.footstepSystem) window.footstepSystem.setVolume('sfx', parseFloat(sfxVol.value)); });
+sysVol.addEventListener('input', () => { if(window.footstepSystem) window.footstepSystem.setVolume('sys', parseFloat(sysVol.value)); });
+
+// すべてのボタンクリック時にシステム音を鳴らす
+document.addEventListener('click', (e) => {
+  if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
+    initAudio();
+    if (window.footstepSystem) window.footstepSystem.playButtonSound();
+  }
+});
+
 // Canvasのリサイズ
 function resizeCanvas() {
   canvas.width = window.innerWidth;
@@ -166,6 +200,10 @@ socket.on('roleAssign', (data) => {
 // ロビー更新
 socket.on('lobbyUpdate', (data) => {
   if (data.status !== 'LOBBY') return;
+  
+  if (window.footstepSystem && window.footstepSystem.bgmPlaying) {
+    window.footstepSystem.stopBGM();
+  }
 
   // プレイヤーリスト構築
   lobbyPlayerList.innerHTML = '';
@@ -256,11 +294,65 @@ socket.on('countdown', (sec) => {
   }
 });
 
+// スポーン選択開始
+socket.on('spawnSelectionStart', (data) => {
+  startScreen.classList.add('hidden');
+  lobbyScreen.classList.add('hidden');
+  gameOverScreen.classList.add('hidden');
+  spawnSelectionScreen.classList.remove('hidden');
+  spawnTimerText.innerText = data.duration;
+  spawnStatusMsg.innerText = 'マップをタップして開始位置を決定！';
+  
+  if (myRole !== 'player') {
+    spawnStatusMsg.innerText = 'プレイヤーが開始位置を選択中です...';
+  }
+});
+
+socket.on('spawnCountdown', (sec) => {
+  spawnTimerText.innerText = sec;
+});
+
+// スポーン位置選択(キャンバスクリック)
+spawnMapCanvas.addEventListener('click', (e) => {
+  if (myRole !== 'player') return;
+  const rect = spawnMapCanvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) / rect.width * mapSize;
+  const y = (e.clientY - rect.top) / rect.height * mapSize;
+  socket.emit('selectSpawn', { x, y });
+  
+  // 自分用に選択状態を保存しておく (描画用)
+  currentGameState = currentGameState || { players: {} };
+  if (!currentGameState.players[myId]) currentGameState.players[myId] = {};
+  currentGameState.players[myId].spawnTarget = { x, y };
+  
+  spawnStatusMsg.innerText = '降下ポイントをセットしました！';
+  initAudio(); // 音声コンテキストの開始
+  if (window.footstepSystem) window.footstepSystem.playButtonSound();
+});
+
+// ゲーム開始前3秒カウントダウン
+socket.on('finalCountdownStart', (count) => {
+  spawnSelectionScreen.classList.add('hidden');
+  lobbyScreen.classList.add('hidden');
+  startScreen.classList.add('hidden');
+  bigCountdownScreen.classList.remove('hidden');
+  bigCountdownText.innerText = count;
+  initAudio();
+  if (window.footstepSystem) window.footstepSystem.playButtonSound();
+});
+
+socket.on('finalCountdownUpdate', (count) => {
+  bigCountdownText.innerText = count;
+  if (window.footstepSystem) window.footstepSystem.playButtonSound();
+});
+
 // ゲーム開始
 socket.on('gameStart', () => {
   startScreen.classList.add('hidden');
   lobbyScreen.classList.add('hidden');
   gameOverScreen.classList.add('hidden');
+  spawnSelectionScreen.classList.add('hidden');
+  bigCountdownScreen.classList.add('hidden');
   hud.classList.remove('hidden');
 
   if (myRole === 'player') {
@@ -324,6 +416,10 @@ socket.on('playerDeath', (data) => {
 
 // ゲーム終了
 socket.on('gameOver', (data) => {
+  if (window.footstepSystem && window.footstepSystem.bgmPlaying) {
+    window.footstepSystem.stopBGM();
+  }
+
   hud.classList.add('hidden');
   controlsOverlay.classList.add('hidden');
   gameOverScreen.classList.remove('hidden');
@@ -356,9 +452,63 @@ socket.on('voteSuccess', () => {
 });
 
 // ゲーム状態の同期更新
-socket.on('gameState', (state) => {
+socket.on('sync', (state) => {
   currentGameState = state;
+  
+  if (state.serverStartTime && window.footstepSystem) {
+    const uptime = Date.now() - state.serverStartTime;
+    // BGMの開始 (SPAWN_SELECTION以降は鳴らす)
+    // 状態はlobbyUpdateでも来るが、syncで同期している
+    // serverStartTimeが来たらBGM鳴らす
+    if (!window.footstepSystem.bgmPlaying) {
+      window.footstepSystem.playBGM(uptime);
+    }
+  }
 });
+
+// スポーン選択画面の描画ループ
+function drawSpawnMap() {
+  if (spawnSelectionScreen.classList.contains('hidden')) {
+    requestAnimationFrame(drawSpawnMap);
+    return;
+  }
+  
+  const ctxSpawn = spawnMapCanvas.getContext('2d');
+  const w = spawnMapCanvas.width = spawnMapCanvas.clientWidth;
+  const h = spawnMapCanvas.height = spawnMapCanvas.clientHeight;
+  const scaleX = w / mapSize;
+  const scaleY = h / mapSize;
+  
+  ctxSpawn.clearRect(0, 0, w, h);
+  
+  // 壁の描画
+  ctxSpawn.fillStyle = '#333';
+  mapWalls.forEach(wall => {
+    ctxSpawn.fillRect(wall.x * scaleX, wall.y * scaleY, wall.w * scaleX, wall.h * scaleY);
+  });
+  
+  // 自分の選択位置を描画
+  if (currentGameState && currentGameState.players && currentGameState.players[myId] && currentGameState.players[myId].spawnTarget) {
+    const target = currentGameState.players[myId].spawnTarget;
+    ctxSpawn.fillStyle = '#4ade80';
+    ctxSpawn.beginPath();
+    ctxSpawn.arc(target.x * scaleX, target.y * scaleY, 8, 0, Math.PI * 2);
+    ctxSpawn.fill();
+    ctxSpawn.strokeStyle = '#fff';
+    ctxSpawn.lineWidth = 2;
+    ctxSpawn.stroke();
+    
+    // パルスエフェクト
+    const pulseTime = (Date.now() % 1000) / 1000;
+    ctxSpawn.strokeStyle = `rgba(74, 222, 128, ${1 - pulseTime})`;
+    ctxSpawn.beginPath();
+    ctxSpawn.arc(target.x * scaleX, target.y * scaleY, 8 + pulseTime * 15, 0, Math.PI * 2);
+    ctxSpawn.stroke();
+  }
+  
+  requestAnimationFrame(drawSpawnMap);
+}
+drawSpawnMap();
 
 // 投票ボタン押下
 function castVote(targetPlayerId) {
