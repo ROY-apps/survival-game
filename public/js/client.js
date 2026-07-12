@@ -614,18 +614,61 @@ const joystick = new VirtualJoystick(
   }
 );
 
-// 攻撃ボタン
-const shootBtn = document.getElementById('shootBtn');
-shootBtn.addEventListener('touchstart', (e) => {
-  e.preventDefault();
-  inputState.shoot = true;
-  sendInputToServer();
-});
-shootBtn.addEventListener('touchend', (e) => {
-  e.preventDefault();
-  inputState.shoot = false;
-  sendInputToServer();
-});
+// エイム・攻撃用ジョイスティック
+let aimTimer = null;
+const aimJoystick = new VirtualJoystick(
+  'aimJoystickZone',
+  'aimJoystickOuter',
+  'aimJoystickInner',
+  (angle, force) => {
+    inputState.aimAngle = angle;
+    inputState.aimForce = force;
+
+    if (force > 0) {
+      // 倒し始め
+      if (!aimTimer) {
+        inputState.shoot = false;
+        // 0.3秒長押しでフルオート連射開始
+        aimTimer = setTimeout(() => {
+          inputState.shoot = true;
+          sendInputToServer();
+        }, 300);
+      } else if (inputState.shoot) {
+        // すでに連射モードなら向きを更新して送信
+        sendInputToServer();
+      } else {
+        // 狙い中（連射はまだ）なら向きだけ送信
+        sendInputToServer();
+      }
+    } else {
+      // 指を離した時
+      if (aimTimer) {
+        clearTimeout(aimTimer);
+        aimTimer = null;
+      }
+      
+      if (!inputState.shoot) {
+        // まだ連射モードになっていない（＝タップ or 狙って離した）場合は単発発射
+        inputState.shoot = true;
+        sendInputToServer();
+        
+        // 直後に発射フラグを解除
+        setTimeout(() => {
+          inputState.shoot = false;
+          inputState.aimAngle = undefined;
+          inputState.aimForce = 0;
+          sendInputToServer();
+        }, 50);
+      } else {
+        // 連射モード中だった場合は射撃停止
+        inputState.shoot = false;
+        inputState.aimAngle = undefined;
+        inputState.aimForce = 0;
+        sendInputToServer();
+      }
+    }
+  }
+);
 
 // PCでのデバッグ用キー＆マウスクリック
 window.addEventListener('keydown', (e) => {
@@ -1048,6 +1091,21 @@ function draw() {
     }
 
     ctx.restore();
+    
+    // エイム（照準）線の描画（自分自身のみ）
+    if (isMe && inputState && inputState.aimForce > 0 && inputState.aimAngle !== undefined) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      // 長さ500pxのレーザーを描画
+      const laserLen = 500;
+      ctx.lineTo(p.x + Math.cos(inputState.aimAngle) * laserLen, p.y + Math.sin(inputState.aimAngle) * laserLen);
+      ctx.strokeStyle = 'rgba(255, 62, 62, 0.4)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([10, 10]); // 点線にする
+      ctx.stroke();
+      ctx.restore();
+    }
 
     // ギリースーツの場合は他人からHPバーと名前を隠蔽
     const hideUI = isGhillie && (id !== myId);

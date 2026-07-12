@@ -475,9 +475,11 @@ function updateGame() {
       if (weaponConfig && weaponConfig.cooldown > 0 && now - p.lastShotTime > weaponConfig.cooldown) {
         p.lastShotTime = now;
 
+        let attackAngle = p.input.aimAngle !== undefined ? p.input.aimAngle : p.angle;
+        p.angle = attackAngle; // 攻撃方向にキャラクターを向かせる
+
         if (wName === 'fist') {
           // 素手攻撃（近接スイング判定）
-          let attackAngle = p.angle;
           for (let otherId in gameState.players) {
             if (otherId === id) continue;
             let other = gameState.players[otherId];
@@ -514,12 +516,12 @@ function updateGame() {
           // 銃器攻撃
           if (wName === 'machinegun') {
             let angleSpread = (Math.random() - 0.5) * weaponConfig.spread;
-            let shotAngle = p.angle + angleSpread;
+            let shotAngle = attackAngle + angleSpread;
             gameState.bullets.push({
               id: Math.random().toString(36).substr(2, 9),
               playerId: p.id,
-              x: p.x + Math.cos(p.angle) * 22,
-              y: p.y + Math.sin(p.angle) * 22,
+              x: p.x + Math.cos(attackAngle) * 22,
+              y: p.y + Math.sin(attackAngle) * 22,
               vx: Math.cos(shotAngle) * weaponConfig.speed,
               vy: Math.sin(shotAngle) * weaponConfig.speed,
               damage: weaponConfig.damage,
@@ -530,12 +532,12 @@ function updateGame() {
           } else {
             // ショットガン (放射状に散弾を5発発射)
             for (let i = -2; i <= 2; i++) {
-              let shotAngle = p.angle + (i * 0.15); // 少しずつ角度をずらす
+              let shotAngle = attackAngle + (i * 0.15); // 少しずつ角度をずらす
               gameState.bullets.push({
                 id: Math.random().toString(36).substr(2, 9),
                 playerId: p.id,
-                x: p.x + Math.cos(p.angle) * 22,
-                y: p.y + Math.sin(p.angle) * 22,
+                x: p.x + Math.cos(attackAngle) * 22,
+                y: p.y + Math.sin(attackAngle) * 22,
                 vx: Math.cos(shotAngle) * weaponConfig.speed,
                 vy: Math.sin(shotAngle) * weaponConfig.speed,
                 damage: weaponConfig.damage / 4, // 1発25ダメージ
