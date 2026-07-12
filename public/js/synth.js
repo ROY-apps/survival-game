@@ -50,21 +50,31 @@ class FootstepAudio {
     if (!this.audioCtx || this.audioCtx.state !== 'running') return;
     const now = this.audioCtx.currentTime;
     
-    // ピピっというシステム音
+    // サイバーでクールなシステム音 (お尻でピッチが跳ね上がる)
     const osc = this.audioCtx.createOscillator();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(1200, now);
-    osc.frequency.exponentialRampToValueAtTime(800, now + 0.1);
+    osc.type = 'square'; // 機械的でエッジの効いた音色
     
+    // ピッチを中域から高域へ急上昇させる
+    osc.frequency.setValueAtTime(300, now);
+    osc.frequency.exponentialRampToValueAtTime(2400, now + 0.12);
+    
+    // キンキンしすぎないようにフィルターをかける
+    const filter = this.audioCtx.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.setValueAtTime(500, now);
+
     const gainNode = this.audioCtx.createGain();
-    gainNode.gain.setValueAtTime(this.sysVol * 0.3, now);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+    gainNode.gain.setValueAtTime(0, now);
+    // アタックを鋭くし、その後余韻を残す
+    gainNode.gain.linearRampToValueAtTime(this.sysVol * 0.15, now + 0.02);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
     
-    osc.connect(gainNode);
+    osc.connect(filter);
+    filter.connect(gainNode);
     gainNode.connect(this.masterGain);
     
     osc.start(now);
-    osc.stop(now + 0.1);
+    osc.stop(now + 0.15);
   }
 
   // サーバー時間と同期したBGM
