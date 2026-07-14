@@ -138,12 +138,18 @@ document.addEventListener('pointerdown', unlockAudio, { once: true });
 document.addEventListener('touchstart', unlockAudio, { once: true });
 document.addEventListener('click', unlockAudio, { once: true });
 
+// 保存された音量を読み込む
+if (localStorage.getItem('bgmVol') !== null) bgmVol.value = localStorage.getItem('bgmVol');
+if (localStorage.getItem('sfxVol') !== null) sfxVol.value = localStorage.getItem('sfxVol');
+if (localStorage.getItem('sysVol') !== null) sysVol.value = localStorage.getItem('sysVol');
+
 // スライダーで音量調整（+ テスト音再生）
 bgmVol.addEventListener('input', () => { 
   if(window.footstepSystem) {
     initAudio();
     window.footstepSystem.setVolume('bgm', parseFloat(bgmVol.value));
   }
+  localStorage.setItem('bgmVol', bgmVol.value);
 });
 sfxVol.addEventListener('change', () => { 
   if(window.footstepSystem) {
@@ -152,6 +158,7 @@ sfxVol.addEventListener('change', () => {
     // 効果音のテストとして足音（少し大きめ）を鳴らす
     window.footstepSystem.playFootstep(0, 1.0);
   }
+  localStorage.setItem('sfxVol', sfxVol.value);
 });
 sysVol.addEventListener('change', () => { 
   if(window.footstepSystem) {
@@ -159,6 +166,7 @@ sysVol.addEventListener('change', () => {
     window.footstepSystem.setVolume('sys', parseFloat(sysVol.value)); 
     window.footstepSystem.playButtonSound();
   }
+  localStorage.setItem('sysVol', sysVol.value);
 });
 
 // すべてのボタンクリック時にシステム音を鳴らす
